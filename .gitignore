@@ -23,3 +23,12 @@ __pycache__
 *.swp
 *.zip
 *~
+
+# Files created by snap packaging
+/parts/
+/stage/
+/prime/
+/snap/.snapcraft/
+/*_source.tar.bz2
+*.snap
+

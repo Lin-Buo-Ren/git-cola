@@ -1,0 +1,405 @@
+%YAML 1.2
+---
+name: git-cola
+version: 'replaced-by-version-script'
+version-script: |
+  set -eu
+
+  upstream_version="$(
+    git \
+      -C parts/git-cola/src \
+      describe \
+      --always \
+      --dirty=-d \
+      --tags \
+    | sed s/^v//
+  )"
+
+  packaging_revision="$(
+    git \
+      describe \
+      --abbrev=4 \
+      --always \
+      --dirty=-d
+  )"
+
+  printf -- '%s' "${upstream_version}+pkg-${packaging_revision}"
+
+summary: The highly caffeinated Git GUI
+description: |
+  git-cola is a powerful Git GUI with a slick and intuitive user interface.
+
+  INFORMATION REGARDING TO SECURITY CONFINEMENT
+
+  User's global Git configuration is not accessible due to Snapd's current limitations.  You may change the in-snap configuration by editing $HOME/snap/git-cola/current/.gitconfig
+
+  You need to connect the snap to the following core snap's interfaces manually in order to gain access to certain functionalities:
+
+  * gpg-keys: For signing commits and tags
+
+        sudo snap connect git-cola:gpg-keys
+
+  * removable-media: For accessing Git repositories under `/media/*` and `/run/media/*`
+
+        sudo snap connect git-cola:removable-media
+
+  * ssh-keys: For remote operation via SSH protocol
+
+        sudo snap connect git-cola:ssh-keys
+
+  BUILD CONFIGURATION
+
+  For `stable` channel the formal release of Git Cola is used, for `beta` and `edge` channel the latest development snapshot is used.
+
+  Information of other Git Cola's dependencies:
+
+  * Blame Viewer: git-gui from Ubuntu 16.04 software archive
+  * Diff Tool: Kdiff3 from Ubuntu 16.04 software archive
+  * Git: From Ubuntu 16.04 software archive
+  * Git Annex: From Ubuntu 16.04 software archive
+  * Git Large File system: Latest release from upstream at build time(only in i386/amd64)
+  * History Browser: gitk from Ubuntu 16.04 software archive
+  * Merge Tool: Kdiff3 from Ubuntu 16.04 software archive
+
+confinement: strict
+grade: stable
+icon: share/git-cola/icons/git-cola.svg
+passthrough:
+  license: GPL-2.0+
+
+apps:
+  # NOTE: Sync `command` prefix and `plugs` for each app.
+  git-cola:
+    command: >
+      desktop-launch
+      perl-launch
+      tcltk-launch
+      ssh-agent-launch
+      git-launch
+      git-cola-launch
+      git cola
+    desktop: share/applications/git-cola.desktop
+    plugs:
+    - desktop
+    - desktop-legacy
+    - unity7
+    - wayland
+    - x11
+
+    - home
+    - removable-media # Non-autoconnect
+
+    # SSH remote support
+    - ssh-keys # Non-autoconnect
+
+    # For signing commits and tags
+    - gpg-keys # Non-autoconnect
+
+    # Network access for remote operations
+    - network
+    - network-observe # Non-autoconnect
+
+    # Unknown (but suggested in runtime)
+    - mount-observe # Non-autoconnect
+    - network-manager # Non-autoconnect
+    - opengl
+  git-dag:
+    command: >
+      desktop-launch
+      perl-launch
+      tcltk-launch
+      ssh-agent-launch
+      git-launch
+      git-cola-launch
+      git dag
+    desktop: share/applications/git-dag.desktop
+    plugs:
+    - desktop
+    - desktop-legacy
+    - unity7
+    - wayland
+    - x11
+
+    - home
+    - removable-media # Non-autoconnect
+
+    # SSH remote support
+    - ssh-keys # Non-autoconnect
+
+    # For signing commits and tags
+    - gpg-keys # Non-autoconnect
+
+    # Network access for remote operations
+    - network
+    - network-observe # Non-autoconnect
+
+    # Unknown (but suggested in runtime)
+    - mount-observe # Non-autoconnect
+    - network-manager # Non-autoconnect
+    - opengl
+  git-cola-folder-handler:
+    command: >
+      desktop-launch
+      perl-launch
+      tcltk-launch
+      ssh-agent-launch
+      git-launch
+      git-cola-launch
+      git-cola --repo
+    desktop: share/applications/git-cola-folder-handler.desktop
+    plugs:
+    - desktop
+    - desktop-legacy
+    - unity7
+    - wayland
+    - x11
+
+    - home
+    - removable-media # Non-autoconnect
+
+    # SSH remote support
+    - ssh-keys # Non-autoconnect
+
+    # For signing commits and tags
+    - gpg-keys # Non-autoconnect
+
+    # Network access for remote operations
+    - network
+    - network-observe # Non-autoconnect
+
+    # Unknown (but suggested in runtime)
+    - mount-observe # Non-autoconnect
+    - network-manager # Non-autoconnect
+    - opengl
+parts:
+  # Patches to fix other parts
+  patches:
+    source: snap/patches
+    source-type: local
+    plugin: dump
+
+    # DISABLED: Bug #1775582 “`organize:{ /: another-dir/ }` causes the items under host root directory to be copied in another-dir” : Bugs : Snapcraft
+    # https://forum.snapcraft.io/t/organize-another-dir-causes-the-items-under-host-root-directory-to-be-copied-in-another-dir/5806
+    #organize:
+        #/: patches/
+    override-build: |
+      set -eu
+
+      snapcraftctl build
+
+      mkdir \
+        --parents \
+        "$SNAPCRAFT_PART_INSTALL"/patches
+      mv \
+        "$SNAPCRAFT_PART_INSTALL"/*.diff \
+        "$SNAPCRAFT_PART_INSTALL"/*.patch \
+        "$SNAPCRAFT_PART_INSTALL"/*.sed \
+        "$SNAPCRAFT_PART_INSTALL"/patches \
+        || true # Empty patches folder is allowed
+    stage:
+    - patches/*
+    override-prime: 'true'
+
+  # Launchers to fix runtime environments
+  launchers:
+    source: snap/launchers
+    source-type: local
+    plugin: dump
+
+    override-build: |
+      set -eu
+
+      mkdir \
+        --parents \
+        "$SNAPCRAFT_PART_INSTALL"/bin
+      cp \
+        --force \
+        --verbose \
+        *-launch \
+        "$SNAPCRAFT_PART_INSTALL"/bin
+
+  # Ubuntu 16.04 doesn't have python-send2trash
+  send2trash:
+    plugin: python
+    process-dependency-links: false
+    python-packages:
+    - send2trash
+    python-version: python3
+
+  # Programs to help build other parts
+  utilities:
+    source: snap/utilities
+    override-pull: |
+      set -eu
+
+      snapcraftctl pull
+
+      mkdir \
+        --parents \
+        utilities
+      mv \
+        *.bash \
+        utilities
+
+    plugin: dump
+    override-prime: 'true'
+
+  # OPTIONAL: Git Large File System
+  git-lfs:
+    after:
+    - utilities
+
+    plugin: nil
+    build-packages:
+    - wget
+
+    override-pull: 'true'
+    override-build: |
+      set -eu
+
+      "${SNAPCRAFT_STAGE}"/utilities/snapcraft-install-latest-git-lfs-release.bash
+
+  diff-merge-tool:
+    plugin: nil
+    stage-packages:
+    - kdiff3-qt
+
+    override-pull: 'true'
+
+  blame-viewer:
+    plugin: nil
+    stage-packages:
+    - git-gui
+
+    override-pull: 'true'
+
+  git-annex:
+    plugin: nil
+    stage-packages:
+    - git-annex
+
+    override-pull: 'true'
+
+  history-browser:
+    plugin: nil
+    stage-packages:
+    - gitk
+
+    override-pull: 'true'
+
+  git-cola:
+    after:
+    - desktop-qt5
+    - patches
+
+    build-packages:
+    - gettext
+    - make
+    - rsync
+
+    # REPLACED: By Python 3 counterparts
+    #- python
+    #- python-pyqt5
+    #- python-sphinx
+
+    - python3
+    - python3-pyqt5
+    - python3-sphinx
+    stage-packages:
+    # `git stash` requires git-sh-i18n requires gettext.sh in PATH
+    - gettext-base
+
+    - git-core
+    - libdb5.3
+
+    # Required by ssh-askpass
+    - libtcl8.6
+
+    # Required by ssh-askpass(command: wish)
+    - tk
+
+    # REPLACED: By Python 3 counterparts
+    #- python
+    #- python-pyqt5
+
+    - python3
+    - python3-pyqt5
+
+    # REPLACED: by send2trash part
+    #- python3-send2trash
+
+    # For `ssh-agent`
+    - openssh-client
+
+    source: .git
+    source-depth: 200
+
+    plugin: make
+    make-parameters:
+    - DESTDIR=$SNAPCRAFT_PART_INSTALL
+    - prefix=/snap/git-cola/current
+    - install-doc
+    organize:
+      snap/git-cola/current/: /
+    filesets:
+      additional-executables:
+      - share/git-cola/bin/*
+      appdata:
+      - share/appdata/*
+      desktop-entries:
+      - share/applications/*
+      documentation:
+      - share/doc/git-cola/*
+      executables:
+      - bin/*
+      icons:
+      - share/git-cola/icons/*
+      libraries:
+      - share/git-cola/lib/*
+      localization:
+      - share/locale/*
+
+    override-stage: |
+      set -eu
+
+      snapcraftctl stage
+
+      # Patch desktop entries
+      sed \
+        --file "${SNAPCRAFT_STAGE}"/patches/patch-desktop-entries.sed \
+        --in-place \
+        "${SNAPCRAFT_STAGE}"/share/applications/*.desktop
+
+      # Patch executable shebangs
+      # https://github.com/git-cola/git-cola/issues/850
+      sed \
+        --file "${SNAPCRAFT_STAGE}"/patches/patch-git-cola-shebang.sed \
+        --in-place \
+        "${SNAPCRAFT_STAGE}"/bin/git-cola \
+        "${SNAPCRAFT_STAGE}"/bin/git-dag
+    override-prime: |
+      set -eu
+
+      snapcraftctl prime
+
+      ln \
+        --force \
+        --symbolic \
+        python3 \
+        "${SNAPCRAFT_PRIME}"/usr/bin/python
+
+      # Now that everything is built, let's disable user site-packages
+      # as stated in PEP-0370
+      sed \
+        --in-place \
+        --expression='s/^ENABLE_USER_SITE = None$/ENABLE_USER_SITE = False/' \
+        "${SNAPCRAFT_PRIME}"/usr/lib/python3.5/site.py
+
+      # This is the last step, let's now compile all our pyc files.
+      # 0 --workers: Use all available CPU threads
+      "${SNAPCRAFT_PRIME}"/usr/bin/python3 \
+        -m compileall \
+        -qq \
+        --workers 0 \
+        "${SNAPCRAFT_PRIME}" \
+        || true # May fail on Python 3 incompatible code

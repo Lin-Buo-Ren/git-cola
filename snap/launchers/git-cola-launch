@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Launcher to ship Snappy-specific configurations
+# 林博仁 © 2018
+
+set \
+	-o errexit \
+	-o errtrace \
+	-o nounset \
+	-o pipefail
+
+init(){
+	# Use host GUI editor
+	git config \
+		--global \
+		gui.editor \
+		xdg-open
+
+	# We ship Kdiff3
+	git config \
+		--global \
+		diff.tool \
+		kdiff3
+	git config \
+		--global \
+		merge.tool \
+		kdiff3
+
+    exec "${@}"
+}
+
+init "${@}"
